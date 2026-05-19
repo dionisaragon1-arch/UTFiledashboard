@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dionis · Operations Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1014;
+    --panel: #161922;
+    --panel-2: #1d212c;
+    --line: #2a2f3d;
+    --ink: #eef0f5;
+    --mute: #8a92a6;
+    --accent: #d4ae5f;
+    --accent-2: #6fb6c4;
+    --pink: #e07a8b;
+    --green: #8fbc7a;
+    --purple: #a786d4;
+    --orange: #d98a5f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Inter Tight', sans-serif; }
+  body {
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(212,174,95,0.07) 0%, transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(111,182,196,0.06) 0%, transparent 40%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1480px; margin: 0 auto; padding: 32px 28px 80px; }
+
+  header.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 32px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand .logo { font-family: 'Fraunces', serif; font-weight: 900; font-size: 44px; letter-spacing: -0.03em; color: var(--ink); }
+  .brand .logo em { color: var(--accent); font-style: italic; font-weight: 400; }
+  .brand .tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.2em; }
+  .meta { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.15em; line-height: 1.7; }
+  .meta strong { color: var(--ink); font-weight: 500; }
+
+  .summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 32px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 18px 18px 16px; position: relative; overflow: hidden; }
+  .stat::before { content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%; background: var(--accent); }
+  .stat .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--mute); margin-bottom: 8px; }
+  .stat .val { font-family: 'Fraunces', serif; font-weight: 500; font-size: 32px; letter-spacing: -0.02em; line-height: 1; }
+  .stat .sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--mute); margin-top: 6px; }
+  .stat:nth-child(2)::before { background: var(--accent-2); }
+  .stat:nth-child(3)::before { background: var(--pink); }
+  .stat:nth-child(4)::before { background: var(--green); }
+  .stat:nth-child(5)::before { background: var(--purple); }
+  .stat:nth-child(6)::before { background: var(--orange); }
+
+  /* Section + cards */
+  .section-title { display: flex; align-items: baseline; gap: 12px; margin: 40px 0 16px; }
+  .section-title h2 { font-family: 'Fraunces', serif; font-weight: 500; font-style: italic; font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+  .section-title .num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; }
+  .section-title .line { flex: 1; height: 1px; background: var(--line); }
+
+  .grid { display: grid; gap: 18px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-5 { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 1100px) { .grid-2, .grid-3, .grid-5, .summary { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 640px) { .grid-2, .grid-3, .grid-5, .summary { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 22px; }
+  .card.tall { min-height: 380px; }
+  .card h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .card .sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 18px; }
+  .card .chart-wrap { position: relative; height: 300px; }
+  .card .chart-wrap.tall { height: 400px; }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .controls label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.15em; }
+  select, .pill {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    padding: 7px 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    border-radius: 3px; cursor: pointer; outline: none;
+  }
+  select:hover, .pill:hover { border-color: var(--accent); }
+  .pill { display: inline-block; }
+  .pill.active { background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 700; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--mute); padding: 10px 8px; border-bottom: 1px solid var(--line); font-weight: 500; }
+  table td { padding: 10px 8px; border-bottom: 1px solid rgba(42,47,61,0.5); }
+  table tr:last-child td { border-bottom: none; }
+  table td.num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+  table td.name { font-weight: 500; }
+  .bar-cell { position: relative; }
+  .bar-cell .bar { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 22px; background: rgba(212,174,95,0.18); border-left: 2px solid var(--accent); border-radius: 0 2px 2px 0; }
+  .bar-cell span { position: relative; padding-left: 8px; }
+
+  .scroll { max-height: 420px; overflow-y: auto; }
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+  .ribbon { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ribbon .pill { font-size: 11px; padding: 5px 11px; user-select: none; }
+
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--mute); text-align: center; text-transform: uppercase; letter-spacing: 0.2em; }
+
+  /* Employee state badges */
+  .states-cell { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 360px; }
+  .st-badge {
+    display: inline-flex; align-items: baseline; gap: 4px;
+    padding: 2px 7px; border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    background: rgba(212,174,95,0.12); border: 1px solid rgba(212,174,95,0.35);
+    color: var(--ink); letter-spacing: 0.04em;
+  }
+  .st-badge.dim { background: rgba(138,146,166,0.08); border-color: rgba(138,146,166,0.25); color: var(--mute); }
+  .st-badge .st-code { font-weight: 700; color: var(--accent); }
+  .st-badge.dim .st-code { color: var(--mute); }
+  .st-badge .st-count { color: var(--mute); }
+  .st-mono { color: var(--mute); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="head">
+  <div class="brand">
+    <div class="logo">Dionis<em>·</em>ops</div>
+    <div class="tag">Transaction · Workflow · Workload</div>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<div class="summary" id="summary"></div>
+
+<!-- Section 1: Closed files / month -->
+<div class="section-title">
+  <span class="num">01</span>
+  <h2>Closed files per month</h2>
+  <span class="line"></span>
+</div>
+
+<div class="grid grid-2">
+  <div class="card tall">
+    <h3>Monthly trend</h3>
+    <div class="sub">Total closed orders by month · all states</div>
+    <div class="chart-wrap"><canvas id="overallChart"></canvas></div>
+  </div>
+  <div class="card tall">
+    <h3>By state</h3>
+    <div class="sub">Stacked monthly volume · top 6 states</div>
+    <div class="chart-wrap"><canvas id="stateChart"></canvas></div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top: 18px;">
+  <div class="card">
+    <h3>Average closed files per month — by state</h3>
+    <div class="sub">Mean across active months · excludes partial current month</div>
+    <div id="avgStateTable" class="scroll"></div>
+  </div>
+  <div class="card">
+    <h3>Average closed files per month — by settlement agency</h3>
+    <div class="sub">Mean across active months · excludes partial current month</div>
+    <div id="avgAgencyTable" class="scroll"></div>
+  </div>
+</div>
+
+<!-- Section 2: Employee workload -->
+<div class="section-title">
+  <span class="num">02</span>
+  <h2>File load by employee</h2>
+  <span class="line"></span>
+</div>
+
+<div class="card">
+  <div class="controls">
+    <label>Role:</label>
+    <div class="ribbon" id="roleRibbon"></div>
+  </div>
+  <div id="employeeTable" class="scroll"></div>
+</div>
+
+<!-- Section 3: Transaction types / Workflows / Templates by state -->
+<div class="section-title">
+  <span class="num">03</span>
+  <h2>Transaction mix by state</h2>
+  <span class="line"></span>
+</div>
+
+<div class="card">
+  <div class="controls">
+    <label>State:</label>
+    <select id="stateSelect"></select>
+    <span style="color:var(--mute); font-family:'JetBrains Mono',monospace; font-size:11px; margin-left:8px;" id="stateContext"></span>
+  </div>
+  <div class="grid grid-3" style="margin-top: 18px;">
+    <div>
+      <h3 style="font-family:'Fraunces',serif; font-weight:500; font-size:16px; margin:0 0 4px;">Transaction types</h3>
+      <div class="sub" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--mute); text-transform:uppercase; letter-spacing:0.15em; margin-bottom:14px;">Most used →</div>
+      <div id="txTable"></div>
+    </div>
+    <div>
+      <h3 style="font-family:'Fraunces',serif; font-weight:500; font-size:16px; margin:0 0 4px;">Workflows</h3>
+      <div class="sub" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--mute); text-transform:uppercase; letter-spacing:0.15em; margin-bottom:14px;">Most used →</div>
+      <div id="wfTable"></div>
+    </div>
+    <div>
+      <h3 style="font-family:'Fraunces',serif; font-weight:500; font-size:16px; margin:0 0 4px;">Order templates</h3>
+      <div class="sub" style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--mute); text-transform:uppercase; letter-spacing:0.15em; margin-bottom:14px;">Most used →</div>
+      <div id="tmplTable"></div>
+    </div>
+  </div>
+</div>
+
+<footer>Dionis Operations Dashboard · Generated May 18, 2026</footer>
+
+</div>
+
+<script>
+const DATA = {"summary": {"total_orders": 5768, "closed_orders": 5580, "open_orders": 188, "states": 11, "agencies": 14, "employees": 110, "date_min": "Dec 2024", "date_max": "May 2026"}, "monthly_overall": [{"YearMonth": "2024-12", "count": 3}, {"YearMonth": "2025-01", "count": 250}, {"YearMonth": "2025-02", "count": 253}, {"YearMonth": "2025-03", "count": 322}, {"YearMonth": "2025-04", "count": 338}, {"YearMonth": "2025-05", "count": 374}, {"YearMonth": "2025-06", "count": 363}, {"YearMonth": "2025-07", "count": 388}, {"YearMonth": "2025-08", "count": 372}, {"YearMonth": "2025-09", "count": 377}, {"YearMonth": "2025-10", "count": 473}, {"YearMonth": "2025-11", "count": 330}, {"YearMonth": "2025-12", "count": 362}, {"YearMonth": "2026-01", "count": 257}, {"YearMonth": "2026-02", "count": 273}, {"YearMonth": "2026-03", "count": 383}, {"YearMonth": "2026-04", "count": 350}, {"YearMonth": "2026-05", "count": 112}], "monthly_by_state": [{"YearMonth": "2024-12", "State": "CO", "count": 1}, {"YearMonth": "2024-12", "State": "MI", "count": 2}, {"YearMonth": "2025-01", "State": "AL", "count": 1}, {"YearMonth": "2025-01", "State": "AZ", "count": 8}, {"YearMonth": "2025-01", "State": "CO", "count": 26}, {"YearMonth": "2025-01", "State": "FL", "count": 34}, {"YearMonth": "2025-01", "State": "MI", "count": 178}, {"YearMonth": "2025-01", "State": "PA", "count": 3}, {"YearMonth": "2025-02", "State": "AL", "count": 1}, {"YearMonth": "2025-02", "State": "AZ", "count": 5}, {"YearMonth": "2025-02", "State": "CO", "count": 40}, {"YearMonth": "2025-02", "State": "FL", "count": 21}, {"YearMonth": "2025-02", "State": "MI", "count": 183}, {"YearMonth": "2025-02", "State": "MO", "count": 2}, {"YearMonth": "2025-02", "State": "PA", "count": 1}, {"YearMonth": "2025-03", "State": "AL", "count": 1}, {"YearMonth": "2025-03", "State": "AZ", "count": 12}, {"YearMonth": "2025-03", "State": "CO", "count": 59}, {"YearMonth": "2025-03", "State": "FL", "count": 26}, {"YearMonth": "2025-03", "State": "MI", "count": 211}, {"YearMonth": "2025-03", "State": "MO", "count": 3}, {"YearMonth": "2025-03", "State": "NC", "count": 1}, {"YearMonth": "2025-03", "State": "PA", "count": 6}, {"YearMonth": "2025-03", "State": "TN", "count": 3}, {"YearMonth": "2025-04", "State": "AL", "count": 4}, {"YearMonth": "2025-04", "State": "AZ", "count": 8}, {"YearMonth": "2025-04", "State": "CO", "count": 66}, {"YearMonth": "2025-04", "State": "FL", "count": 19}, {"YearMonth": "2025-04", "State": "KS", "count": 1}, {"YearMonth": "2025-04", "State": "MI", "count": 236}, {"YearMonth": "2025-04", "State": "NC", "count": 2}, {"YearMonth": "2025-04", "State": "TN", "count": 2}, {"YearMonth": "2025-05", "State": "AL", "count": 5}, {"YearMonth": "2025-05", "State": "AZ", "count": 9}, {"YearMonth": "2025-05", "State": "CO", "count": 55}, {"YearMonth": "2025-05", "State": "FL", "count": 24}, {"YearMonth": "2025-05", "State": "MI", "count": 271}, {"YearMonth": "2025-05", "State": "MO", "count": 3}, {"YearMonth": "2025-05", "State": "NC", "count": 3}, {"YearMonth": "2025-05", "State": "PA", "count": 2}, {"YearMonth": "2025-05", "State": "TN", "count": 2}, {"YearMonth": "2025-06", "State": "AL", "count": 7}, {"YearMonth": "2025-06", "State": "AZ", "count": 17}, {"YearMonth": "2025-06", "State": "CO", "count": 62}, {"YearMonth": "2025-06", "State": "FL", "count": 35}, {"YearMonth": "2025-06", "State": "MI", "count": 241}, {"YearMonth": "2025-06", "State": "TN", "count": 1}, {"YearMonth": "2025-07", "State": "AL", "count": 3}, {"YearMonth": "2025-07", "State": "AZ", "count": 5}, {"YearMonth": "2025-07", "State": "CO", "count": 78}, {"YearMonth": "2025-07", "State": "FL", "count": 43}, {"YearMonth": "2025-07", "State": "MI", "count": 248}, {"YearMonth": "2025-07", "State": "NC", "count": 6}, {"YearMonth": "2025-07", "State": "PA", "count": 3}, {"YearMonth": "2025-07", "State": "TN", "count": 2}, {"YearMonth": "2025-08", "State": "AL", "count": 12}, {"YearMonth": "2025-08", "State": "AZ", "count": 10}, {"YearMonth": "2025-08", "State": "CO", "count": 55}, {"YearMonth": "2025-08", "State": "FL", "count": 33}, {"YearMonth": "2025-08", "State": "MI", "count": 255}, {"YearMonth": "2025-08", "State": "NC", "count": 1}, {"YearMonth": "2025-08", "State": "PA", "count": 1}, {"YearMonth": "2025-08", "State": "TN", "count": 5}, {"YearMonth": "2025-09", "State": "AL", "count": 8}, {"YearMonth": "2025-09", "State": "AZ", "count": 15}, {"YearMonth": "2025-09", "State": "CO", "count": 66}, {"YearMonth": "2025-09", "State": "FL", "count": 51}, {"YearMonth": "2025-09", "State": "MI", "count": 232}, {"YearMonth": "2025-09", "State": "NC", "count": 3}, {"YearMonth": "2025-09", "State": "PA", "count": 1}, {"YearMonth": "2025-09", "State": "TN", "count": 1}, {"YearMonth": "2025-10", "State": "AL", "count": 8}, {"YearMonth": "2025-10", "State": "AZ", "count": 25}, {"YearMonth": "2025-10", "State": "CO", "count": 57}, {"YearMonth": "2025-10", "State": "FL", "count": 58}, {"YearMonth": "2025-10", "State": "MI", "count": 310}, {"YearMonth": "2025-10", "State": "MO", "count": 2}, {"YearMonth": "2025-10", "State": "NC", "count": 6}, {"YearMonth": "2025-10", "State": "PA", "count": 6}, {"YearMonth": "2025-10", "State": "TN", "count": 1}, {"YearMonth": "2025-11", "State": "AL", "count": 8}, {"YearMonth": "2025-11", "State": "AZ", "count": 7}, {"YearMonth": "2025-11", "State": "CO", "count": 48}, {"YearMonth": "2025-11", "State": "FL", "count": 46}, {"YearMonth": "2025-11", "State": "KS", "count": 1}, {"YearMonth": "2025-11", "State": "MI", "count": 213}, {"YearMonth": "2025-11", "State": "NC", "count": 2}, {"YearMonth": "2025-11", "State": "PA", "count": 2}, {"YearMonth": "2025-11", "State": "TN", "count": 3}, {"YearMonth": "2025-12", "State": "AL", "count": 8}, {"YearMonth": "2025-12", "State": "AZ", "count": 9}, {"YearMonth": "2025-12", "State": "CO", "count": 63}, {"YearMonth": "2025-12", "State": "FL", "count": 56}, {"YearMonth": "2025-12", "State": "MI", "count": 224}, {"YearMonth": "2025-12", "State": "PA", "count": 2}, {"YearMonth": "2026-01", "State": "AL", "count": 8}, {"YearMonth": "2026-01", "State": "AZ", "count": 8}, {"YearMonth": "2026-01", "State": "CO", "count": 47}, {"YearMonth": "2026-01", "State": "FL", "count": 36}, {"YearMonth": "2026-01", "State": "MI", "count": 155}, {"YearMonth": "2026-01", "State": "NC", "count": 1}, {"YearMonth": "2026-01", "State": "PA", "count": 1}, {"YearMonth": "2026-01", "State": "TN", "count": 1}, {"YearMonth": "2026-02", "State": "AL", "count": 5}, {"YearMonth": "2026-02", "State": "AZ", "count": 5}, {"YearMonth": "2026-02", "State": "CO", "count": 60}, {"YearMonth": "2026-02", "State": "FL", "count": 29}, {"YearMonth": "2026-02", "State": "MI", "count": 161}, {"YearMonth": "2026-02", "State": "NC", "count": 8}, {"YearMonth": "2026-02", "State": "PA", "count": 4}, {"YearMonth": "2026-02", "State": "TN", "count": 1}, {"YearMonth": "2026-03", "State": "AL", "count": 2}, {"YearMonth": "2026-03", "State": "AZ", "count": 14}, {"YearMonth": "2026-03", "State": "CO", "count": 63}, {"YearMonth": "2026-03", "State": "FL", "count": 78}, {"YearMonth": "2026-03", "State": "KS", "count": 1}, {"YearMonth": "2026-03", "State": "MI", "count": 215}, {"YearMonth": "2026-03", "State": "NC", "count": 6}, {"YearMonth": "2026-03", "State": "PA", "count": 2}, {"YearMonth": "2026-03", "State": "TN", "count": 2}, {"YearMonth": "2026-04", "State": "AL", "count": 2}, {"YearMonth": "2026-04", "State": "AZ", "count": 6}, {"YearMonth": "2026-04", "State": "CO", "count": 76}, {"YearMonth": "2026-04", "State": "FL", "count": 60}, {"YearMonth": "2026-04", "State": "KS", "count": 9}, {"YearMonth": "2026-04", "State": "MI", "count": 193}, {"YearMonth": "2026-04", "State": "MO", "count": 4}, {"YearMonth": "2026-05", "State": "AL", "count": 3}, {"YearMonth": "2026-05", "State": "AZ", "count": 3}, {"YearMonth": "2026-05", "State": "CO", "count": 15}, {"YearMonth": "2026-05", "State": "FL", "count": 25}, {"YearMonth": "2026-05", "State": "MI", "count": 66}], "monthly_by_agency": [{"YearMonth": "2024-12", "Settlement Agency": "Apollo Title Agency", "count": 1}, {"YearMonth": "2024-12", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 1}, {"YearMonth": "2024-12", "Settlement Agency": "Trust Title Agency", "count": 1}, {"YearMonth": "2025-01", "Settlement Agency": "Advance Title Agency", "count": 25}, {"YearMonth": "2025-01", "Settlement Agency": "Ann Arbor, MI - University Title Agency", "count": 6}, {"YearMonth": "2025-01", "Settlement Agency": "Apollo Title Agency", "count": 60}, {"YearMonth": "2025-01", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 1}, {"YearMonth": "2025-01", "Settlement Agency": "Otero County Title", "count": 8}, {"YearMonth": "2025-01", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 18}, {"YearMonth": "2025-01", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 8}, {"YearMonth": "2025-01", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 34}, {"YearMonth": "2025-01", "Settlement Agency": "Troy, MI - University Title Agency", "count": 8}, {"YearMonth": "2025-01", "Settlement Agency": "Trust Title Agency", "count": 42}, {"YearMonth": "2025-01", "Settlement Agency": "University Title Agency - University Title Agency", "count": 40}, {"YearMonth": "2025-02", "Settlement Agency": "Advance Title Agency", "count": 36}, {"YearMonth": "2025-02", "Settlement Agency": "Ann Arbor, MI - University Title Agency", "count": 2}, {"YearMonth": "2025-02", "Settlement Agency": "Apollo Title Agency", "count": 70}, {"YearMonth": "2025-02", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 1}, {"YearMonth": "2025-02", "Settlement Agency": "Otero County Title", "count": 12}, {"YearMonth": "2025-02", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 28}, {"YearMonth": "2025-02", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 5}, {"YearMonth": "2025-02", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 21}, {"YearMonth": "2025-02", "Settlement Agency": "Troy, MI - University Title Agency", "count": 3}, {"YearMonth": "2025-02", "Settlement Agency": "Trust Title Agency", "count": 27}, {"YearMonth": "2025-02", "Settlement Agency": "University Title Agency - University Title Agency", "count": 48}, {"YearMonth": "2025-03", "Settlement Agency": "Advance Title Agency", "count": 33}, {"YearMonth": "2025-03", "Settlement Agency": "Ann Arbor, MI - University Title Agency", "count": 6}, {"YearMonth": "2025-03", "Settlement Agency": "Apollo Title Agency", "count": 59}, {"YearMonth": "2025-03", "Settlement Agency": "Otero County Title", "count": 15}, {"YearMonth": "2025-03", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 44}, {"YearMonth": "2025-03", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 12}, {"YearMonth": "2025-03", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 25}, {"YearMonth": "2025-03", "Settlement Agency": "Troy, MI - University Title Agency", "count": 10}, {"YearMonth": "2025-03", "Settlement Agency": "Trust Title Agency", "count": 56}, {"YearMonth": "2025-03", "Settlement Agency": "University Title Agency - University Title Agency", "count": 62}, {"YearMonth": "2025-04", "Settlement Agency": "Advance Title Agency", "count": 39}, {"YearMonth": "2025-04", "Settlement Agency": "Ann Arbor, MI - University Title Agency", "count": 4}, {"YearMonth": "2025-04", "Settlement Agency": "Apollo Title Agency", "count": 56}, {"YearMonth": "2025-04", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 4}, {"YearMonth": "2025-04", "Settlement Agency": "Otero County Title", "count": 15}, {"YearMonth": "2025-04", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 51}, {"YearMonth": "2025-04", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 8}, {"YearMonth": "2025-04", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 19}, {"YearMonth": "2025-04", "Settlement Agency": "Troy, MI - University Title Agency", "count": 15}, {"YearMonth": "2025-04", "Settlement Agency": "Trust Title Agency", "count": 58}, {"YearMonth": "2025-04", "Settlement Agency": "University Title Agency - University Title Agency", "count": 69}, {"YearMonth": "2025-05", "Settlement Agency": "Advance Title Agency", "count": 53}, {"YearMonth": "2025-05", "Settlement Agency": "Apollo Title Agency", "count": 87}, {"YearMonth": "2025-05", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 5}, {"YearMonth": "2025-05", "Settlement Agency": "Otero County Title", "count": 18}, {"YearMonth": "2025-05", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 37}, {"YearMonth": "2025-05", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 9}, {"YearMonth": "2025-05", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 24}, {"YearMonth": "2025-05", "Settlement Agency": "Troy, MI - University Title Agency", "count": 14}, {"YearMonth": "2025-05", "Settlement Agency": "Trust Title Agency", "count": 55}, {"YearMonth": "2025-05", "Settlement Agency": "University Title Agency - University Title Agency", "count": 72}, {"YearMonth": "2025-06", "Settlement Agency": "Advance Title Agency", "count": 38}, {"YearMonth": "2025-06", "Settlement Agency": "Ann Arbor, MI - University Title Agency", "count": 1}, {"YearMonth": "2025-06", "Settlement Agency": "Apollo Title Agency", "count": 49}, {"YearMonth": "2025-06", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 7}, {"YearMonth": "2025-06", "Settlement Agency": "Otero County Title", "count": 15}, {"YearMonth": "2025-06", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 47}, {"YearMonth": "2025-06", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 17}, {"YearMonth": "2025-06", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 34}, {"YearMonth": "2025-06", "Settlement Agency": "Troy, MI - University Title Agency", "count": 12}, {"YearMonth": "2025-06", "Settlement Agency": "Trust Title Agency", "count": 69}, {"YearMonth": "2025-06", "Settlement Agency": "University Title Agency - University Title Agency", "count": 74}, {"YearMonth": "2025-07", "Settlement Agency": "Advance Title Agency", "count": 43}, {"YearMonth": "2025-07", "Settlement Agency": "Apollo Title Agency", "count": 82}, {"YearMonth": "2025-07", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 3}, {"YearMonth": "2025-07", "Settlement Agency": "Otero County Title", "count": 22}, {"YearMonth": "2025-07", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 56}, {"YearMonth": "2025-07", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 5}, {"YearMonth": "2025-07", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 43}, {"YearMonth": "2025-07", "Settlement Agency": "Troy, MI - University Title Agency", "count": 15}, {"YearMonth": "2025-07", "Settlement Agency": "Trust Title Agency", "count": 56}, {"YearMonth": "2025-07", "Settlement Agency": "University Title Agency - University Title Agency", "count": 63}, {"YearMonth": "2025-08", "Settlement Agency": "Advance Title Agency", "count": 40}, {"YearMonth": "2025-08", "Settlement Agency": "Apollo Title Agency", "count": 93}, {"YearMonth": "2025-08", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 12}, {"YearMonth": "2025-08", "Settlement Agency": "Otero County Title", "count": 16}, {"YearMonth": "2025-08", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 39}, {"YearMonth": "2025-08", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 10}, {"YearMonth": "2025-08", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 33}, {"YearMonth": "2025-08", "Settlement Agency": "Troy, MI - University Title Agency", "count": 9}, {"YearMonth": "2025-08", "Settlement Agency": "Trust Title Agency", "count": 51}, {"YearMonth": "2025-08", "Settlement Agency": "University Title Agency - University Title Agency", "count": 69}, {"YearMonth": "2025-09", "Settlement Agency": "Advance Title Agency", "count": 25}, {"YearMonth": "2025-09", "Settlement Agency": "Apollo Title Agency", "count": 75}, {"YearMonth": "2025-09", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 8}, {"YearMonth": "2025-09", "Settlement Agency": "Otero County Title", "count": 21}, {"YearMonth": "2025-09", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 45}, {"YearMonth": "2025-09", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 15}, {"YearMonth": "2025-09", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 51}, {"YearMonth": "2025-09", "Settlement Agency": "Troy, MI - University Title Agency", "count": 11}, {"YearMonth": "2025-09", "Settlement Agency": "Trust Title Agency", "count": 56}, {"YearMonth": "2025-09", "Settlement Agency": "University Title Agency - University Title Agency", "count": 70}, {"YearMonth": "2025-10", "Settlement Agency": "Advance Title Agency", "count": 43}, {"YearMonth": "2025-10", "Settlement Agency": "Apollo Title Agency", "count": 69}, {"YearMonth": "2025-10", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 8}, {"YearMonth": "2025-10", "Settlement Agency": "Otero County Title", "count": 15}, {"YearMonth": "2025-10", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 42}, {"YearMonth": "2025-10", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 25}, {"YearMonth": "2025-10", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 58}, {"YearMonth": "2025-10", "Settlement Agency": "Troy, MI - University Title Agency", "count": 20}, {"YearMonth": "2025-10", "Settlement Agency": "Trust Title Agency", "count": 61}, {"YearMonth": "2025-10", "Settlement Agency": "University Title Agency - University Title Agency", "count": 132}, {"YearMonth": "2025-11", "Settlement Agency": "Advance Title Agency", "count": 33}, {"YearMonth": "2025-11", "Settlement Agency": "Apollo Title Agency", "count": 74}, {"YearMonth": "2025-11", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 9}, {"YearMonth": "2025-11", "Settlement Agency": "Otero County Title", "count": 13}, {"YearMonth": "2025-11", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 35}, {"YearMonth": "2025-11", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 7}, {"YearMonth": "2025-11", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 46}, {"YearMonth": "2025-11", "Settlement Agency": "Troy, MI - University Title Agency", "count": 9}, {"YearMonth": "2025-11", "Settlement Agency": "Trust Title Agency", "count": 42}, {"YearMonth": "2025-11", "Settlement Agency": "University Title Agency - University Title Agency", "count": 62}, {"YearMonth": "2025-12", "Settlement Agency": "Advance Title Agency", "count": 24}, {"YearMonth": "2025-12", "Settlement Agency": "Apollo Title Agency", "count": 67}, {"YearMonth": "2025-12", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 8}, {"YearMonth": "2025-12", "Settlement Agency": "Otero County Title", "count": 12}, {"YearMonth": "2025-12", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 51}, {"YearMonth": "2025-12", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 9}, {"YearMonth": "2025-12", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 55}, {"YearMonth": "2025-12", "Settlement Agency": "Troy, MI - University Title Agency", "count": 10}, {"YearMonth": "2025-12", "Settlement Agency": "Trust Title Agency", "count": 44}, {"YearMonth": "2025-12", "Settlement Agency": "University Title Agency - University Title Agency", "count": 82}, {"YearMonth": "2026-01", "Settlement Agency": "ADMIN - University Title Agency", "count": 1}, {"YearMonth": "2026-01", "Settlement Agency": "Advance Title Agency", "count": 22}, {"YearMonth": "2026-01", "Settlement Agency": "Apollo Title Agency", "count": 53}, {"YearMonth": "2026-01", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 8}, {"YearMonth": "2026-01", "Settlement Agency": "Otero County Title", "count": 8}, {"YearMonth": "2026-01", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 39}, {"YearMonth": "2026-01", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 8}, {"YearMonth": "2026-01", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 36}, {"YearMonth": "2026-01", "Settlement Agency": "Troy, MI - University Title Agency", "count": 1}, {"YearMonth": "2026-01", "Settlement Agency": "Trust Title Agency", "count": 30}, {"YearMonth": "2026-01", "Settlement Agency": "University Title Agency - University Title Agency", "count": 51}, {"YearMonth": "2026-02", "Settlement Agency": "Advance Title Agency", "count": 24}, {"YearMonth": "2026-02", "Settlement Agency": "Apollo Title Agency", "count": 47}, {"YearMonth": "2026-02", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 5}, {"YearMonth": "2026-02", "Settlement Agency": "Otero County Title", "count": 19}, {"YearMonth": "2026-02", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 41}, {"YearMonth": "2026-02", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 5}, {"YearMonth": "2026-02", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 29}, {"YearMonth": "2026-02", "Settlement Agency": "Troy, MI - University Title Agency", "count": 9}, {"YearMonth": "2026-02", "Settlement Agency": "Trust Title Agency", "count": 43}, {"YearMonth": "2026-02", "Settlement Agency": "University Title Agency - University Title Agency", "count": 51}, {"YearMonth": "2026-03", "Settlement Agency": "Advance Title Agency", "count": 33}, {"YearMonth": "2026-03", "Settlement Agency": "Apollo Title Agency", "count": 77}, {"YearMonth": "2026-03", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 2}, {"YearMonth": "2026-03", "Settlement Agency": "Kansas - University Title Agency", "count": 1}, {"YearMonth": "2026-03", "Settlement Agency": "Otero County Title", "count": 19}, {"YearMonth": "2026-03", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 44}, {"YearMonth": "2026-03", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 14}, {"YearMonth": "2026-03", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 78}, {"YearMonth": "2026-03", "Settlement Agency": "Troy, MI - University Title Agency", "count": 10}, {"YearMonth": "2026-03", "Settlement Agency": "Trust Title Agency", "count": 42}, {"YearMonth": "2026-03", "Settlement Agency": "University Title Agency - PA - University Title", "count": 1}, {"YearMonth": "2026-03", "Settlement Agency": "University Title Agency - University Title Agency", "count": 62}, {"YearMonth": "2026-04", "Settlement Agency": "Advance Title Agency", "count": 31}, {"YearMonth": "2026-04", "Settlement Agency": "Apollo Title Agency", "count": 52}, {"YearMonth": "2026-04", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 2}, {"YearMonth": "2026-04", "Settlement Agency": "Kansas - University Title Agency", "count": 10}, {"YearMonth": "2026-04", "Settlement Agency": "Otero County Title", "count": 28}, {"YearMonth": "2026-04", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 48}, {"YearMonth": "2026-04", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 6}, {"YearMonth": "2026-04", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 60}, {"YearMonth": "2026-04", "Settlement Agency": "Troy, MI - University Title Agency", "count": 17}, {"YearMonth": "2026-04", "Settlement Agency": "Trust Title Agency", "count": 50}, {"YearMonth": "2026-04", "Settlement Agency": "University Title Agency - University Title Agency", "count": 46}, {"YearMonth": "2026-05", "Settlement Agency": "Advance Title Agency", "count": 15}, {"YearMonth": "2026-05", "Settlement Agency": "Apollo Title Agency", "count": 18}, {"YearMonth": "2026-05", "Settlement Agency": "Birmingham, AL - University Title Agency", "count": 3}, {"YearMonth": "2026-05", "Settlement Agency": "Otero County Title", "count": 3}, {"YearMonth": "2026-05", "Settlement Agency": "Pueblo, CO - University Title Agency", "count": 12}, {"YearMonth": "2026-05", "Settlement Agency": "Scottsdale, AZ - University Title Agency", "count": 3}, {"YearMonth": "2026-05", "Settlement Agency": "Tampa, FL - University Title Agency", "count": 25}, {"YearMonth": "2026-05", "Settlement Agency": "Troy, MI - University Title Agency", "count": 10}, {"YearMonth": "2026-05", "Settlement Agency": "Trust Title Agency", "count": 13}, {"YearMonth": "2026-05", "Settlement Agency": "University Title Agency - University Title Agency", "count": 10}], "avg_by_state": [{"state": "MI", "avg": 207.5, "total": 3528}, {"state": "CO", "avg": 54.2, "total": 922}, {"state": "FL", "avg": 40.6, "total": 649}, {"state": "AZ", "avg": 10.2, "total": 163}, {"state": "AL", "avg": 5.2, "total": 83}, {"state": "NC", "avg": 3.5, "total": 39}, {"state": "KS", "avg": 3.0, "total": 12}, {"state": "MO", "avg": 2.8, "total": 14}, {"state": "PA", "avg": 2.6, "total": 34}, {"state": "TN", "avg": 2.0, "total": 24}], "avg_by_agency": [{"agency": "University Title Agency - University Title Agency", "avg": 65.8, "total": 1053}, {"agency": "Apollo Title Agency", "avg": 63.0, "total": 1071}, {"agency": "Trust Title Agency", "avg": 46.1, "total": 783}, {"agency": "Tampa, FL - University Title Agency", "avg": 40.4, "total": 646}, {"agency": "Pueblo, CO - University Title Agency", "avg": 39.2, "total": 666}, {"agency": "Advance Title Agency", "avg": 33.9, "total": 542}, {"agency": "Otero County Title", "avg": 16.0, "total": 256}, {"agency": "Troy, MI - University Title Agency", "avg": 10.8, "total": 173}, {"agency": "Scottsdale, AZ - University Title Agency", "avg": 10.2, "total": 163}, {"agency": "Kansas - University Title Agency", "avg": 5.5, "total": 11}, {"agency": "Birmingham, AL - University Title Agency", "avg": 5.5, "total": 83}, {"agency": "Ann Arbor, MI - University Title Agency", "avg": 3.8, "total": 19}, {"agency": "ADMIN - University Title Agency", "avg": 1.0, "total": 1}, {"agency": "University Title Agency - PA - University Title", "avg": 1.0, "total": 1}], "employees": {"Escrow Officer": [{"name": "Heather Monroe", "total": 842, "months_active": 17, "avg_per_month": 49.5, "states": [{"state": "MI", "count": 842}]}, {"name": "Tammy Krein", "total": 839, "months_active": 18, "avg_per_month": 46.6, "states": [{"state": "MI", "count": 837}, {"state": "MO", "count": 2}]}, {"name": "Anna Rosenthal", "total": 720, "months_active": 17, "avg_per_month": 42.4, "states": [{"state": "MI", "count": 605}, {"state": "NC", "count": 39}, {"state": "PA", "count": 26}, {"state": "AL", "count": 21}, {"state": "TN", "count": 19}, {"state": "MO", "count": 5}, {"state": "FL", "count": 3}, {"state": "KS", "count": 2}]}, {"name": "Nicole Lakawskas", "total": 624, "months_active": 17, "avg_per_month": 36.7, "states": [{"state": "MI", "count": 624}]}, {"name": "Renee Stocker", "total": 535, "months_active": 11, "avg_per_month": 48.6, "states": [{"state": "MI", "count": 535}]}, {"name": "Roxie Dase", "total": 402, "months_active": 17, "avg_per_month": 23.6, "states": [{"state": "CO", "count": 402}]}, {"name": "Yazara N Redding", "total": 302, "months_active": 16, "avg_per_month": 18.9, "states": [{"state": "FL", "count": 302}]}, {"name": "Angela Martin", "total": 265, "months_active": 14, "avg_per_month": 18.9, "states": [{"state": "FL", "count": 265}]}, {"name": "Jim Newman", "total": 251, "months_active": 17, "avg_per_month": 14.8, "states": [{"state": "CO", "count": 251}]}, {"name": "B - Robin Doyle", "total": 203, "months_active": 14, "avg_per_month": 14.5, "states": [{"state": "CO", "count": 203}]}, {"name": "Tammy Smith", "total": 165, "months_active": 17, "avg_per_month": 9.7, "states": [{"state": "AZ", "count": 165}]}, {"name": "Mia Tate", "total": 116, "months_active": 5, "avg_per_month": 23.2, "states": [{"state": "MI", "count": 114}, {"state": "FL", "count": 2}]}, {"name": "Meaghan Dubbs", "total": 73, "months_active": 8, "avg_per_month": 9.1, "states": [{"state": "AL", "count": 36}, {"state": "FL", "count": 30}, {"state": "MO", "count": 3}, {"state": "TN", "count": 2}, {"state": "PA", "count": 2}]}, {"name": "Danica Rodriguez", "total": 72, "months_active": 9, "avg_per_month": 8.0, "states": [{"state": "CO", "count": 72}]}, {"name": "Jillian Howard", "total": 53, "months_active": 4, "avg_per_month": 13.2, "states": [{"state": "AL", "count": 26}, {"state": "FL", "count": 20}, {"state": "TN", "count": 3}, {"state": "PA", "count": 2}, {"state": "MO", "count": 2}]}, {"name": "Kate Taylor", "total": 51, "months_active": 3, "avg_per_month": 17.0, "states": [{"state": "FL", "count": 49}, {"state": "PA", "count": 2}]}, {"name": "Aaron Kopczyk", "total": 33, "months_active": 11, "avg_per_month": 3.0, "states": [{"state": "MI", "count": 28}, {"state": "AL", "count": 2}, {"state": "PA", "count": 2}, {"state": "MO", "count": 1}]}, {"name": "Denise Clarke", "total": 11, "months_active": 2, "avg_per_month": 5.5, "states": [{"state": "KS", "count": 10}, {"state": "MO", "count": 1}]}, {"name": "Jamie Naiman", "total": 5, "months_active": 1, "avg_per_month": 5.0, "states": [{"state": "MI", "count": 5}]}, {"name": "Chris Keels", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}, {"name": "Evan Kopczyk", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "AL", "count": 1}]}, {"name": "Oscar Perales", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "CO", "count": 1}]}, {"name": "Tina Batayeh", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "FL", "count": 1}]}], "Order Opener": [{"name": "Bobby McConnaughey", "total": 1869, "months_active": 12, "avg_per_month": 155.8, "states": [{"state": "MI", "count": 1566}, {"state": "FL", "count": 186}, {"state": "AL", "count": 38}, {"state": "CO", "count": 25}, {"state": "NC", "count": 23}, {"state": "PA", "count": 17}, {"state": "TN", "count": 8}, {"state": "MO", "count": 5}, {"state": "KS", "count": 1}]}, {"name": "Mackenzie Baldwin", "total": 857, "months_active": 14, "avg_per_month": 61.2, "states": [{"state": "MI", "count": 748}, {"state": "CO", "count": 41}, {"state": "AL", "count": 28}, {"state": "FL", "count": 12}, {"state": "NC", "count": 11}, {"state": "TN", "count": 7}, {"state": "PA", "count": 5}, {"state": "MO", "count": 4}, {"state": "KS", "count": 1}]}, {"name": "Adam R. Meadows", "total": 664, "months_active": 16, "avg_per_month": 41.5, "states": [{"state": "MI", "count": 517}, {"state": "FL", "count": 62}, {"state": "CO", "count": 48}, {"state": "AL", "count": 18}, {"state": "PA", "count": 6}, {"state": "TN", "count": 6}, {"state": "NC", "count": 5}, {"state": "MO", "count": 1}, {"state": "KS", "count": 1}]}, {"name": "Amber Jaddou", "total": 404, "months_active": 18, "avg_per_month": 22.4, "states": [{"state": "MI", "count": 368}, {"state": "FL", "count": 23}, {"state": "CO", "count": 13}]}, {"name": "Bri Meissner", "total": 350, "months_active": 14, "avg_per_month": 25.0, "states": [{"state": "MI", "count": 285}, {"state": "FL", "count": 38}, {"state": "CO", "count": 16}, {"state": "PA", "count": 5}, {"state": "MO", "count": 3}, {"state": "AL", "count": 2}, {"state": "TN", "count": 1}]}, {"name": "Kellee Kichnet", "total": 325, "months_active": 14, "avg_per_month": 23.2, "states": [{"state": "CO", "count": 325}]}, {"name": "Zach Brian Martin", "total": 207, "months_active": 9, "avg_per_month": 23.0, "states": [{"state": "FL", "count": 207}]}, {"name": "Danica Rodriguez", "total": 153, "months_active": 13, "avg_per_month": 11.8, "states": [{"state": "CO", "count": 153}]}, {"name": "Gloria Padilla", "total": 114, "months_active": 10, "avg_per_month": 11.4, "states": [{"state": "CO", "count": 113}, {"state": "MI", "count": 1}]}, {"name": "Soleil Kirnon", "total": 112, "months_active": 8, "avg_per_month": 14.0, "states": [{"state": "FL", "count": 107}, {"state": "MI", "count": 5}]}, {"name": "Meaghan Dubbs", "total": 97, "months_active": 17, "avg_per_month": 5.7, "states": [{"state": "AZ", "count": 97}]}, {"name": "Gabbie Blaylock", "total": 70, "months_active": 5, "avg_per_month": 14.0, "states": [{"state": "CO", "count": 70}]}, {"name": "Tammy Smith", "total": 69, "months_active": 17, "avg_per_month": 4.1, "states": [{"state": "AZ", "count": 69}]}, {"name": "Oscar Perales", "total": 55, "months_active": 15, "avg_per_month": 3.7, "states": [{"state": "CO", "count": 55}]}, {"name": "Chelsea Kelly", "total": 44, "months_active": 10, "avg_per_month": 4.4, "states": [{"state": "MI", "count": 40}, {"state": "TN", "count": 2}, {"state": "CO", "count": 1}, {"state": "FL", "count": 1}]}, {"name": "Christina McCann", "total": 42, "months_active": 7, "avg_per_month": 6.0, "states": [{"state": "CO", "count": 41}, {"state": "MI", "count": 1}]}, {"name": "Sharice Jackson", "total": 28, "months_active": 6, "avg_per_month": 4.7, "states": [{"state": "MI", "count": 21}, {"state": "FL", "count": 4}, {"state": "CO", "count": 2}, {"state": "PA", "count": 1}]}, {"name": "Leah Squires", "total": 22, "months_active": 7, "avg_per_month": 3.1, "states": [{"state": "MI", "count": 22}]}, {"name": "Anna Noland", "total": 19, "months_active": 2, "avg_per_month": 9.5, "states": [{"state": "CO", "count": 19}]}, {"name": "Yazara N Redding", "total": 19, "months_active": 10, "avg_per_month": 1.9, "states": [{"state": "FL", "count": 19}]}, {"name": "B - Robin Doyle", "total": 11, "months_active": 8, "avg_per_month": 1.4, "states": [{"state": "CO", "count": 11}]}, {"name": "Denise Clarke", "total": 8, "months_active": 1, "avg_per_month": 8.0, "states": [{"state": "KS", "count": 8}]}, {"name": "Ashley Atkins Grogan", "total": 7, "months_active": 6, "avg_per_month": 1.2, "states": [{"state": "FL", "count": 7}]}, {"name": "Stacey Groat", "total": 7, "months_active": 3, "avg_per_month": 2.3, "states": [{"state": "MI", "count": 7}]}, {"name": "Angela Martin", "total": 4, "months_active": 3, "avg_per_month": 1.3, "states": [{"state": "FL", "count": 4}]}, {"name": "Jamie Rayner", "total": 4, "months_active": 3, "avg_per_month": 1.3, "states": [{"state": "MI", "count": 4}]}, {"name": "Dayshia Martinez", "total": 3, "months_active": 1, "avg_per_month": 3.0, "states": [{"state": "CO", "count": 3}]}, {"name": "Meghann Dill", "total": 3, "months_active": 2, "avg_per_month": 1.5, "states": [{"state": "MI", "count": 3}]}, {"name": "Anna Rosenthal", "total": 2, "months_active": 2, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 2}]}, {"name": "Mariah Alexis Ocker", "total": 2, "months_active": 1, "avg_per_month": 2.0, "states": [{"state": "MO", "count": 1}, {"state": "KS", "count": 1}]}, {"name": "Allie PeLong", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}, {"name": "Georgia Williams", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "CO", "count": 1}]}, {"name": "Kate Taylor", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "FL", "count": 1}]}, {"name": "Nicole Lakawskas", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}, {"name": "Taylor Snell", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}, {"name": "Tina Batayeh", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "FL", "count": 1}]}], "Pre Processor": [{"name": "Michelle Dobrauer", "total": 923, "months_active": 18, "avg_per_month": 51.3, "states": [{"state": "MI", "count": 920}, {"state": "MO", "count": 3}]}, {"name": "Christine Dutkiewicz", "total": 753, "months_active": 15, "avg_per_month": 50.2, "states": [{"state": "MI", "count": 753}]}, {"name": "Michael Brombach", "total": 464, "months_active": 13, "avg_per_month": 35.7, "states": [{"state": "MI", "count": 464}]}, {"name": "Darlene Brikho", "total": 341, "months_active": 6, "avg_per_month": 56.8, "states": [{"state": "MI", "count": 341}]}, {"name": "Judy Merpi", "total": 322, "months_active": 17, "avg_per_month": 18.9, "states": [{"state": "MI", "count": 322}]}, {"name": "Ashley Atkins Grogan", "total": 317, "months_active": 13, "avg_per_month": 24.4, "states": [{"state": "FL", "count": 317}]}, {"name": "Lisa Mason", "total": 197, "months_active": 10, "avg_per_month": 19.7, "states": [{"state": "MI", "count": 197}]}, {"name": "Kellee Kichnet", "total": 194, "months_active": 12, "avg_per_month": 16.2, "states": [{"state": "CO", "count": 194}]}, {"name": "Danica Rodriguez", "total": 190, "months_active": 10, "avg_per_month": 19.0, "states": [{"state": "CO", "count": 190}]}, {"name": "Jim Newman", "total": 149, "months_active": 17, "avg_per_month": 8.8, "states": [{"state": "CO", "count": 149}]}, {"name": "Julie Putnam", "total": 130, "months_active": 6, "avg_per_month": 21.7, "states": [{"state": "MI", "count": 130}]}, {"name": "Tammy Smith; Meaghan Dubbs", "total": 117, "months_active": 17, "avg_per_month": 6.9, "states": [{"state": "AZ", "count": 117}]}, {"name": "Kate Taylor", "total": 77, "months_active": 3, "avg_per_month": 25.7, "states": [{"state": "FL", "count": 71}, {"state": "PA", "count": 5}, {"state": "MO", "count": 1}]}, {"name": "Kellee Kichnet; Danica Rodriguez", "total": 75, "months_active": 5, "avg_per_month": 15.0, "states": [{"state": "CO", "count": 75}]}, {"name": "Meaghan Dubbs", "total": 72, "months_active": 12, "avg_per_month": 6.0, "states": [{"state": "FL", "count": 29}, {"state": "AL", "count": 23}, {"state": "AZ", "count": 16}, {"state": "MO", "count": 3}, {"state": "PA", "count": 1}]}, {"name": "Evan Kopczyk", "total": 70, "months_active": 12, "avg_per_month": 5.8, "states": [{"state": "AL", "count": 54}, {"state": "PA", "count": 5}, {"state": "FL", "count": 4}, {"state": "MI", "count": 3}, {"state": "TN", "count": 2}, {"state": "MO", "count": 2}]}, {"name": "Zach Brian Martin", "total": 67, "months_active": 9, "avg_per_month": 7.4, "states": [{"state": "FL", "count": 67}]}, {"name": "Anna Rosenthal", "total": 63, "months_active": 11, "avg_per_month": 5.7, "states": [{"state": "NC", "count": 26}, {"state": "PA", "count": 16}, {"state": "MI", "count": 13}, {"state": "TN", "count": 7}, {"state": "KS", "count": 1}]}, {"name": "Christina McCann", "total": 60, "months_active": 6, "avg_per_month": 10.0, "states": [{"state": "CO", "count": 60}]}, {"name": "Gabbie Blaylock", "total": 58, "months_active": 5, "avg_per_month": 11.6, "states": [{"state": "CO", "count": 58}]}, {"name": "Michelle Dobrauer; Christine Dutkiewicz", "total": 57, "months_active": 7, "avg_per_month": 8.1, "states": [{"state": "MI", "count": 55}, {"state": "MO", "count": 2}]}, {"name": "Denver John Pinto", "total": 55, "months_active": 6, "avg_per_month": 9.2, "states": [{"state": "MI", "count": 55}]}, {"name": "Heather Monroe", "total": 53, "months_active": 9, "avg_per_month": 5.9, "states": [{"state": "MI", "count": 53}]}, {"name": "Christine Dutkiewicz; Michelle Dobrauer", "total": 50, "months_active": 6, "avg_per_month": 8.3, "states": [{"state": "MI", "count": 50}]}, {"name": "Georgia Williams", "total": 49, "months_active": 9, "avg_per_month": 5.4, "states": [{"state": "CO", "count": 49}]}, {"name": "Jenelee Coronel", "total": 39, "months_active": 2, "avg_per_month": 19.5, "states": [{"state": "FL", "count": 39}]}, {"name": "Holly Davis", "total": 38, "months_active": 3, "avg_per_month": 12.7, "states": [{"state": "MI", "count": 38}]}, {"name": "Roxie Dase", "total": 38, "months_active": 4, "avg_per_month": 9.5, "states": [{"state": "CO", "count": 38}]}, {"name": "Stacey Groat", "total": 24, "months_active": 3, "avg_per_month": 8.0, "states": [{"state": "MI", "count": 24}]}, {"name": "Meaghan Dubbs; Tammy Smith", "total": 23, "months_active": 12, "avg_per_month": 1.9, "states": [{"state": "AZ", "count": 20}, {"state": "FL", "count": 1}, {"state": "PA", "count": 1}, {"state": "AL", "count": 1}]}, {"name": "Jillian Howard", "total": 17, "months_active": 3, "avg_per_month": 5.7, "states": [{"state": "FL", "count": 15}, {"state": "TN", "count": 2}]}, {"name": "Danica Rodriguez; Kellee Kichnet", "total": 16, "months_active": 5, "avg_per_month": 3.2, "states": [{"state": "CO", "count": 16}]}, {"name": "Kellee Kichnet; B - Robin Doyle", "total": 16, "months_active": 4, "avg_per_month": 4.0, "states": [{"state": "CO", "count": 16}]}, {"name": "B - Robin Doyle", "total": 14, "months_active": 6, "avg_per_month": 2.3, "states": [{"state": "CO", "count": 14}]}, {"name": "Tammy Smith", "total": 13, "months_active": 8, "avg_per_month": 1.6, "states": [{"state": "AZ", "count": 13}]}, {"name": "Angela Martin", "total": 12, "months_active": 3, "avg_per_month": 4.0, "states": [{"state": "FL", "count": 12}]}, {"name": "Denise Clarke", "total": 10, "months_active": 2, "avg_per_month": 5.0, "states": [{"state": "KS", "count": 9}, {"state": "MO", "count": 1}]}, {"name": "Myra Greene", "total": 10, "months_active": 2, "avg_per_month": 5.0, "states": [{"state": "FL", "count": 10}]}, {"name": "Myra Greene; Yazara N Redding", "total": 10, "months_active": 2, "avg_per_month": 5.0, "states": [{"state": "FL", "count": 10}]}, {"name": "Gloria Padilla", "total": 9, "months_active": 6, "avg_per_month": 1.5, "states": [{"state": "CO", "count": 9}]}], "Examiner": [{"name": "Outsourced Exam", "total": 1181, "months_active": 18, "avg_per_month": 65.6, "states": [{"state": "FL", "count": 563}, {"state": "MI", "count": 292}, {"state": "AZ", "count": 144}, {"state": "AL", "count": 77}, {"state": "NC", "count": 38}, {"state": "PA", "count": 31}, {"state": "TN", "count": 16}, {"state": "MO", "count": 11}, {"state": "KS", "count": 8}, {"state": "CO", "count": 1}]}, {"name": "Mike Bedra", "total": 1180, "months_active": 17, "avg_per_month": 69.4, "states": [{"state": "MI", "count": 1180}]}, {"name": "Edata One", "total": 1063, "months_active": 18, "avg_per_month": 59.1, "states": [{"state": "MI", "count": 1063}]}, {"name": "Oscar Perales", "total": 748, "months_active": 18, "avg_per_month": 41.6, "states": [{"state": "CO", "count": 708}, {"state": "FL", "count": 35}, {"state": "AZ", "count": 5}]}, {"name": "Zack Bailey", "total": 234, "months_active": 17, "avg_per_month": 13.8, "states": [{"state": "MI", "count": 234}]}, {"name": "Georgia Williams", "total": 227, "months_active": 17, "avg_per_month": 13.4, "states": [{"state": "CO", "count": 227}]}, {"name": "Amber Jaddou", "total": 222, "months_active": 17, "avg_per_month": 13.1, "states": [{"state": "MI", "count": 222}]}, {"name": "X1 User", "total": 211, "months_active": 16, "avg_per_month": 13.2, "states": [{"state": "MI", "count": 170}, {"state": "FL", "count": 25}, {"state": "AZ", "count": 15}, {"state": "PA", "count": 1}]}, {"name": "Rocco Paradiso", "total": 201, "months_active": 17, "avg_per_month": 11.8, "states": [{"state": "MI", "count": 201}]}, {"name": "Leah Squires", "total": 154, "months_active": 17, "avg_per_month": 9.1, "states": [{"state": "MI", "count": 154}]}, {"name": "Title Wave", "total": 17, "months_active": 8, "avg_per_month": 2.1, "states": [{"state": "MI", "count": 9}, {"state": "TN", "count": 8}]}, {"name": "Meghann Dill", "total": 15, "months_active": 10, "avg_per_month": 1.5, "states": [{"state": "MI", "count": 13}, {"state": "AZ", "count": 1}, {"state": "KS", "count": 1}]}, {"name": "Amy Dunn", "total": 13, "months_active": 3, "avg_per_month": 4.3, "states": [{"state": "MI", "count": 13}]}, {"name": "Apollo Title Agency", "total": 6, "months_active": 4, "avg_per_month": 1.5, "states": [{"state": "MI", "count": 6}]}, {"name": "Stacey Groat", "total": 3, "months_active": 3, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 2}, {"state": "AL", "count": 1}]}], "Title Review": [{"name": "Rocco Paradiso", "total": 1483, "months_active": 17, "avg_per_month": 87.2, "states": [{"state": "MI", "count": 1483}]}, {"name": "Oscar Perales", "total": 761, "months_active": 18, "avg_per_month": 42.3, "states": [{"state": "CO", "count": 700}, {"state": "FL", "count": 39}, {"state": "AZ", "count": 22}]}, {"name": "Zack Bailey", "total": 650, "months_active": 18, "avg_per_month": 36.1, "states": [{"state": "MI", "count": 636}, {"state": "TN", "count": 14}]}, {"name": "Amber Jaddou", "total": 589, "months_active": 18, "avg_per_month": 32.7, "states": [{"state": "MI", "count": 479}, {"state": "AZ", "count": 98}, {"state": "FL", "count": 12}]}, {"name": "Leah Squires", "total": 248, "months_active": 17, "avg_per_month": 14.6, "states": [{"state": "MI", "count": 237}, {"state": "PA", "count": 10}, {"state": "NC", "count": 1}]}, {"name": "Stacey Groat", "total": 233, "months_active": 13, "avg_per_month": 17.9, "states": [{"state": "MI", "count": 146}, {"state": "AL", "count": 68}, {"state": "FL", "count": 10}, {"state": "PA", "count": 4}, {"state": "MO", "count": 2}, {"state": "AZ", "count": 1}, {"state": "NC", "count": 1}, {"state": "KS", "count": 1}]}, {"name": "Meghann Dill", "total": 121, "months_active": 16, "avg_per_month": 7.6, "states": [{"state": "AZ", "count": 41}, {"state": "MI", "count": 26}, {"state": "PA", "count": 11}, {"state": "FL", "count": 10}, {"state": "NC", "count": 10}, {"state": "KS", "count": 9}, {"state": "MO", "count": 8}, {"state": "TN", "count": 3}, {"state": "AL", "count": 3}]}, {"name": "Apollo Title Agency", "total": 112, "months_active": 13, "avg_per_month": 8.6, "states": [{"state": "MI", "count": 108}, {"state": "MO", "count": 2}, {"state": "PA", "count": 1}, {"state": "AL", "count": 1}]}, {"name": "Georgia Williams", "total": 78, "months_active": 10, "avg_per_month": 7.8, "states": [{"state": "CO", "count": 78}]}, {"name": "Outsourced Exam", "total": 68, "months_active": 6, "avg_per_month": 11.3, "states": [{"state": "FL", "count": 68}]}, {"name": "Amy Dunn", "total": 54, "months_active": 4, "avg_per_month": 13.5, "states": [{"state": "MI", "count": 50}, {"state": "AL", "count": 4}]}, {"name": "Allie PeLong", "total": 7, "months_active": 4, "avg_per_month": 1.8, "states": [{"state": "MI", "count": 5}, {"state": "FL", "count": 2}]}, {"name": "Meaghan Dubbs", "total": 4, "months_active": 3, "avg_per_month": 1.3, "states": [{"state": "AZ", "count": 3}, {"state": "MO", "count": 1}]}, {"name": "Kate Taylor", "total": 2, "months_active": 2, "avg_per_month": 1.0, "states": [{"state": "FL", "count": 2}]}, {"name": "Mike Bedra", "total": 2, "months_active": 1, "avg_per_month": 2.0, "states": [{"state": "MI", "count": 2}]}, {"name": "B - Robin Doyle", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "CO", "count": 1}]}, {"name": "Chris Keels", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}, {"name": "Orlanda Michelle Hampton", "total": 1, "months_active": 1, "avg_per_month": 1.0, "states": [{"state": "MI", "count": 1}]}]}, "tx_by_state": [{"State": "AL", "Transaction Type": "AL WS Cash", "count": 8}, {"State": "AL", "Transaction Type": "AL WS Simultaneous", "count": 7}, {"State": "AL", "Transaction Type": "Cash Sale", "count": 19}, {"State": "AL", "Transaction Type": "Escrow Only", "count": 2}, {"State": "AL", "Transaction Type": "Land Contract", "count": 2}, {"State": "AL", "Transaction Type": "MI WS Cash", "count": 1}, {"State": "AL", "Transaction Type": "MI WS Simultaneous", "count": 1}, {"State": "AL", "Transaction Type": "Pre-Title", "count": 6}, {"State": "AL", "Transaction Type": "Refinance", "count": 22}, {"State": "AL", "Transaction Type": "Simultaneous", "count": 20}, {"State": "AL", "Transaction Type": "Subordinate Order", "count": 1}, {"State": "AL", "Transaction Type": "Title Search Only", "count": 4}, {"State": "AZ", "Transaction Type": "Cash Sale", "count": 31}, {"State": "AZ", "Transaction Type": "Construction Purchase Simultaneous", "count": 1}, {"State": "AZ", "Transaction Type": "Escrow Only", "count": 2}, {"State": "AZ", "Transaction Type": "Land Contract", "count": 1}, {"State": "AZ", "Transaction Type": "Refinance", "count": 28}, {"State": "AZ", "Transaction Type": "Simultaneous", "count": 114}, {"State": "CO", "Transaction Type": "Buy Side Purchase", "count": 1}, {"State": "CO", "Transaction Type": "Cash Sale", "count": 146}, {"State": "CO", "Transaction Type": "Construction Refinance", "count": 1}, {"State": "CO", "Transaction Type": "Escrow Only", "count": 2}, {"State": "CO", "Transaction Type": "HELOC", "count": 1}, {"State": "CO", "Transaction Type": "Pre-Title", "count": 44}, {"State": "CO", "Transaction Type": "Refinance", "count": 212}, {"State": "CO", "Transaction Type": "Simultaneous", "count": 584}, {"State": "CO", "Transaction Type": "Subordinate Order", "count": 11}, {"State": "CO", "Transaction Type": "Title Search Only", "count": 1}, {"State": "CO", "Transaction Type": "Title Search Only (Refinance)", "count": 1}, {"State": "FL", "Transaction Type": "Cash Sale", "count": 196}, {"State": "FL", "Transaction Type": "Escrow Only", "count": 2}, {"State": "FL", "Transaction Type": "HELOC", "count": 1}, {"State": "FL", "Transaction Type": "Land Contract", "count": 1}, {"State": "FL", "Transaction Type": "Refinance", "count": 143}, {"State": "FL", "Transaction Type": "Short Sale", "count": 1}, {"State": "FL", "Transaction Type": "Simultaneous", "count": 344}, {"State": "FL", "Transaction Type": "Subordinate Order", "count": 21}, {"State": "KS", "Transaction Type": "Cash Sale", "count": 10}, {"State": "KS", "Transaction Type": "Refinance", "count": 4}, {"State": "KS", "Transaction Type": "Simultaneous", "count": 21}, {"State": "KS", "Transaction Type": "Subordinate Order", "count": 1}, {"State": "MI", "Transaction Type": "AL WS Simultaneous", "count": 2}, {"State": "MI", "Transaction Type": "Buy Side Purchase", "count": 764}, {"State": "MI", "Transaction Type": "Cash Sale", "count": 841}, {"State": "MI", "Transaction Type": "Escrow Only", "count": 31}, {"State": "MI", "Transaction Type": "HELOC", "count": 5}, {"State": "MI", "Transaction Type": "Land Contract", "count": 77}, {"State": "MI", "Transaction Type": "List Side Sale", "count": 790}, {"State": "MI", "Transaction Type": "MI WS Cash", "count": 72}, {"State": "MI", "Transaction Type": "MI WS Simultaneous", "count": 16}, {"State": "MI", "Transaction Type": "Pre-Title", "count": 3}, {"State": "MI", "Transaction Type": "Refinance", "count": 548}, {"State": "MI", "Transaction Type": "Simultaneous", "count": 471}, {"State": "MI", "Transaction Type": "Subordinate Order", "count": 14}, {"State": "MI", "Transaction Type": "Title Search Only", "count": 2}, {"State": "MO", "Transaction Type": "Cash Sale", "count": 2}, {"State": "MO", "Transaction Type": "Escrow Only", "count": 1}, {"State": "MO", "Transaction Type": "MI WS Simultaneous", "count": 1}, {"State": "MO", "Transaction Type": "Refinance", "count": 3}, {"State": "MO", "Transaction Type": "Simultaneous", "count": 7}, {"State": "NC", "Transaction Type": "Refinance", "count": 39}, {"State": "PA", "Transaction Type": "Cash Sale", "count": 1}, {"State": "PA", "Transaction Type": "Escrow Only", "count": 3}, {"State": "PA", "Transaction Type": "Refinance", "count": 30}, {"State": "PA", "Transaction Type": "Simultaneous", "count": 1}, {"State": "TN", "Transaction Type": "AL WS Simultaneous", "count": 1}, {"State": "TN", "Transaction Type": "Pre-Title", "count": 2}, {"State": "TN", "Transaction Type": "Refinance", "count": 19}, {"State": "TN", "Transaction Type": "Simultaneous", "count": 2}, {"State": "Unknown", "Transaction Type": "Pre-Title", "count": 1}], "wf_by_state": [{"State": "AL", "Workflow": "FL - Cash", "count": 14}, {"State": "AL", "Workflow": "FL - Refi", "count": 4}, {"State": "AL", "Workflow": "HELOC", "count": 1}, {"State": "AL", "Workflow": "MI - Buy Side", "count": 2}, {"State": "AL", "Workflow": "MI - Cash Sale", "count": 23}, {"State": "AL", "Workflow": "MI - List Side Sale", "count": 1}, {"State": "AL", "Workflow": "MI - Refinance", "count": 16}, {"State": "AL", "Workflow": "MI - Simultaneous", "count": 17}, {"State": "AL", "Workflow": "MI Land Contract", "count": 2}, {"State": "AL", "Workflow": "Pre-Title", "count": 4}, {"State": "AL", "Workflow": "Title Search Only", "count": 9}, {"State": "AZ", "Workflow": "AZ - Cash Sale", "count": 31}, {"State": "AZ", "Workflow": "AZ - Refinance", "count": 28}, {"State": "AZ", "Workflow": "AZ - Simultaneous", "count": 117}, {"State": "AZ", "Workflow": "Title Search Only", "count": 1}, {"State": "CO", "Workflow": "CO - O&E", "count": 10}, {"State": "CO", "Workflow": "CO - Pueblo Cash Sale", "count": 24}, {"State": "CO", "Workflow": "CO - Pueblo Refinance", "count": 167}, {"State": "CO", "Workflow": "CO - Pueblo Simultaneous", "count": 564}, {"State": "CO", "Workflow": "Construction Refinance", "count": 1}, {"State": "CO", "Workflow": "DO NOT USE YET Connect Refinance", "count": 1}, {"State": "CO", "Workflow": "MI - Cash Sale", "count": 102}, {"State": "CO", "Workflow": "MI - Refinance", "count": 26}, {"State": "CO", "Workflow": "MI - Simultaneous", "count": 75}, {"State": "CO", "Workflow": "MO - Simultaneous", "count": 2}, {"State": "CO", "Workflow": "Pre-Title", "count": 16}, {"State": "CO", "Workflow": "Title Search Only", "count": 16}, {"State": "FL", "Workflow": "FL - Cash", "count": 203}, {"State": "FL", "Workflow": "FL - Refi", "count": 142}, {"State": "FL", "Workflow": "FL - Simultaneous", "count": 338}, {"State": "FL", "Workflow": "HELOC", "count": 1}, {"State": "FL", "Workflow": "MI - Buy Side", "count": 15}, {"State": "FL", "Workflow": "MI - Cash Sale", "count": 3}, {"State": "FL", "Workflow": "MI - Refinance", "count": 3}, {"State": "FL", "Workflow": "MI - Simultaneous", "count": 1}, {"State": "FL", "Workflow": "Pre-Title", "count": 1}, {"State": "FL", "Workflow": "Title Search Only", "count": 2}, {"State": "KS", "Workflow": "KS - Cash Sale", "count": 9}, {"State": "KS", "Workflow": "KS - Refinance", "count": 2}, {"State": "KS", "Workflow": "KS - Simultaneous", "count": 18}, {"State": "KS", "Workflow": "MI - Cash Sale", "count": 2}, {"State": "KS", "Workflow": "MI - Refinance", "count": 2}, {"State": "KS", "Workflow": "MI - Simultaneous", "count": 3}, {"State": "MI", "Workflow": "Construction Refinance", "count": 1}, {"State": "MI", "Workflow": "DO NOT USE YET Connect Refinance", "count": 1}, {"State": "MI", "Workflow": "HELOC", "count": 4}, {"State": "MI", "Workflow": "MI - Buy Side", "count": 794}, {"State": "MI", "Workflow": "MI - Cash Sale", "count": 919}, {"State": "MI", "Workflow": "MI - List Side Sale", "count": 788}, {"State": "MI", "Workflow": "MI - Refinance", "count": 546}, {"State": "MI", "Workflow": "MI - Simultaneous", "count": 484}, {"State": "MI", "Workflow": "MI Land Contract", "count": 77}, {"State": "MI", "Workflow": "Pre-Title", "count": 3}, {"State": "MI", "Workflow": "Title Search Only", "count": 19}, {"State": "MO", "Workflow": "FL - Cash", "count": 1}, {"State": "MO", "Workflow": "FL - Refi", "count": 1}, {"State": "MO", "Workflow": "MI - Buy Side", "count": 2}, {"State": "MO", "Workflow": "MI - Cash Sale", "count": 1}, {"State": "MO", "Workflow": "MI - Refinance", "count": 1}, {"State": "MO", "Workflow": "MI - Simultaneous", "count": 6}, {"State": "MO", "Workflow": "MO - Cash Sale", "count": 2}, {"State": "NC", "Workflow": "MI - Refinance", "count": 39}, {"State": "PA", "Workflow": "FL - Cash", "count": 1}, {"State": "PA", "Workflow": "FL - Refi", "count": 1}, {"State": "PA", "Workflow": "MI - Buy Side", "count": 1}, {"State": "PA", "Workflow": "MI - Cash Sale", "count": 1}, {"State": "PA", "Workflow": "MI - Refinance", "count": 29}, {"State": "PA", "Workflow": "Title Search Only", "count": 2}, {"State": "TN", "Workflow": "FL - Cash", "count": 1}, {"State": "TN", "Workflow": "MI - Buy Side", "count": 1}, {"State": "TN", "Workflow": "MI - Refinance", "count": 20}, {"State": "TN", "Workflow": "Pre-Title", "count": 2}, {"State": "Unknown", "Workflow": "CO - Pueblo Simultaneous", "count": 1}], "tmpl_by_state": [{"State": "AL", "Template Name": "AL - Cash", "count": 22}, {"State": "AL", "Template Name": "AL - Purchase w/ Mortgage", "count": 7}, {"State": "AL", "Template Name": "AL - Refinance", "count": 18}, {"State": "AL", "Template Name": "AL - Wholesale Cash", "count": 10}, {"State": "AL", "Template Name": "AL - Wholesale Simultaneous", "count": 8}, {"State": "AL", "Template Name": "MI - Cash Sale", "count": 6}, {"State": "AL", "Template Name": "MI - Refinance", "count": 3}, {"State": "AL", "Template Name": "MI - Simultaneous", "count": 3}, {"State": "AL", "Template Name": "Pre-Title", "count": 4}, {"State": "AL", "Template Name": "Title Search Only", "count": 4}, {"State": "AZ", "Template Name": "AZ - Cash", "count": 27}, {"State": "AZ", "Template Name": "AZ - Refi", "count": 25}, {"State": "AZ", "Template Name": "AZ - Simultaneous", "count": 117}, {"State": "AZ", "Template Name": "Pre-Title", "count": 2}, {"State": "CO", "Template Name": "CO - Cash FSBO", "count": 2}, {"State": "CO", "Template Name": "CO - O&E", "count": 1}, {"State": "CO", "Template Name": "CO - Simultaneous", "count": 427}, {"State": "CO", "Template Name": "MI - Cash Sale", "count": 1}, {"State": "CO", "Template Name": "MI - Refinance", "count": 61}, {"State": "CO", "Template Name": "MI - Simultaneous", "count": 2}, {"State": "CO", "Template Name": "OCT Cash Agent", "count": 41}, {"State": "CO", "Template Name": "OCT Cash FSBO", "count": 55}, {"State": "CO", "Template Name": "OCT Refinance", "count": 22}, {"State": "CO", "Template Name": "OCT Simul Agent", "count": 48}, {"State": "CO", "Template Name": "OCT Simul FSBO", "count": 21}, {"State": "CO", "Template Name": "Pre-Title", "count": 209}, {"State": "CO", "Template Name": "Title Search Only", "count": 8}, {"State": "FL", "Template Name": "EMD", "count": 1}, {"State": "FL", "Template Name": "FL - Cash", "count": 193}, {"State": "FL", "Template Name": "FL - Refinance", "count": 133}, {"State": "FL", "Template Name": "FL - Simultaneous", "count": 308}, {"State": "FL", "Template Name": "MI - Cash Sale", "count": 2}, {"State": "FL", "Template Name": "MI - Refinance", "count": 4}, {"State": "FL", "Template Name": "MI - Simultaneous", "count": 2}, {"State": "FL", "Template Name": "Pre-Title", "count": 26}, {"State": "FL", "Template Name": "Title Search Only", "count": 3}, {"State": "KS", "Template Name": "AL - Cash", "count": 1}, {"State": "KS", "Template Name": "KS - Cash", "count": 10}, {"State": "KS", "Template Name": "KS - Refinance", "count": 4}, {"State": "KS", "Template Name": "KS - Simultaneous", "count": 14}, {"State": "KS", "Template Name": "MI - Cash Sale", "count": 2}, {"State": "KS", "Template Name": "MI - Simultaneous", "count": 2}, {"State": "KS", "Template Name": "Title Search Only", "count": 1}, {"State": "MI", "Template Name": "AL - Refinance", "count": 1}, {"State": "MI", "Template Name": "CO - Simultaneous", "count": 1}, {"State": "MI", "Template Name": "EMD", "count": 30}, {"State": "MI", "Template Name": "FL - Refinance", "count": 2}, {"State": "MI", "Template Name": "FL - Simultaneous", "count": 6}, {"State": "MI", "Template Name": "MI - Cash Sale", "count": 707}, {"State": "MI", "Template Name": "MI - Construction Refinance", "count": 1}, {"State": "MI", "Template Name": "MI - Land Contract", "count": 60}, {"State": "MI", "Template Name": "MI - List Side", "count": 521}, {"State": "MI", "Template Name": "MI - Refinance", "count": 504}, {"State": "MI", "Template Name": "MI - Simultaneous", "count": 249}, {"State": "MI", "Template Name": "MI - Wholesale Cash", "count": 76}, {"State": "MI", "Template Name": "MI - Wholesale Simultaneous", "count": 10}, {"State": "MI", "Template Name": "OCT Cash FSBO", "count": 1}, {"State": "MI", "Template Name": "OCT Simul Agent", "count": 1}, {"State": "MI", "Template Name": "Pre-Title", "count": 432}, {"State": "MI", "Template Name": "Title Search Only", "count": 15}, {"State": "MO", "Template Name": "MO - Cash", "count": 5}, {"State": "MO", "Template Name": "MO - Refinance", "count": 1}, {"State": "MO", "Template Name": "MO - Simultaneous", "count": 5}, {"State": "NC", "Template Name": "MI - Refinance", "count": 37}, {"State": "NC", "Template Name": "PA - Refinance", "count": 1}, {"State": "PA", "Template Name": "AL - Cash", "count": 1}, {"State": "PA", "Template Name": "MI - Refinance", "count": 1}, {"State": "PA", "Template Name": "PA - Cash", "count": 1}, {"State": "PA", "Template Name": "PA - Refinance", "count": 28}, {"State": "PA", "Template Name": "Title Search Only", "count": 1}, {"State": "TN", "Template Name": "AL - Refinance", "count": 1}, {"State": "TN", "Template Name": "AL - Wholesale Simultaneous", "count": 1}, {"State": "TN", "Template Name": "MI - Refinance", "count": 17}, {"State": "TN", "Template Name": "MO - Refinance", "count": 1}, {"State": "TN", "Template Name": "Pre-Title", "count": 1}, {"State": "Unknown", "Template Name": "Pre-Title", "count": 1}], "current_month": "2026-05"};
+
+// ============================================================
+// Chart.js defaults
+// ============================================================
+Chart.defaults.font.family = "'Inter Tight', sans-serif";
+Chart.defaults.color = '#8a92a6';
+Chart.defaults.borderColor = '#2a2f3d';
+
+const palette = ['#d4ae5f','#6fb6c4','#e07a8b','#8fbc7a','#a786d4','#d98a5f','#c1c7d4','#5d8aa8'];
+
+// ============================================================
+// Header meta + summary
+// ============================================================
+const s = DATA.summary;
+document.getElementById('meta').innerHTML = `
+  <div>Period · <strong>${s.date_min}</strong> → <strong>${s.date_max}</strong></div>
+  <div>${s.total_orders.toLocaleString()} orders tracked</div>
+`;
+
+const statBlocks = [
+  { lbl: 'Total orders', val: s.total_orders.toLocaleString(), sub: 'all statuses' },
+  { lbl: 'Closed', val: s.closed_orders.toLocaleString(), sub: `${(s.closed_orders/s.total_orders*100).toFixed(1)}% close rate` },
+  { lbl: 'Open', val: s.open_orders.toLocaleString(), sub: 'in flight' },
+  { lbl: 'States', val: s.states, sub: 'active' },
+  { lbl: 'Settlement agencies', val: s.agencies, sub: 'operating' },
+  { lbl: 'Unique staff', val: s.employees, sub: 'across all roles' },
+];
+document.getElementById('summary').innerHTML = statBlocks.map(b => `
+  <div class="stat">
+    <div class="lbl">${b.lbl}</div>
+    <div class="val">${b.val}</div>
+    <div class="sub">${b.sub}</div>
+  </div>
+`).join('');
+
+// ============================================================
+// Section 1 — Monthly trend
+// ============================================================
+const months = DATA.monthly_overall.map(d => d.YearMonth);
+const counts = DATA.monthly_overall.map(d => d.count);
+
+new Chart(document.getElementById('overallChart'), {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [{
+      label: 'Closed orders',
+      data: counts,
+      borderColor: '#d4ae5f',
+      backgroundColor: 'rgba(212,174,95,0.12)',
+      fill: true,
+      tension: 0.35,
+      pointRadius: 3,
+      pointBackgroundColor: '#d4ae5f',
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(42,47,61,0.4)' }, ticks: { maxRotation: 60, minRotation: 60, font: { size: 10 } } },
+      y: { grid: { color: 'rgba(42,47,61,0.4)' }, beginAtZero: true }
+    }
+  }
+});
+
+// stacked by top 6 states
+const topStates = (() => {
+  const totals = {};
+  DATA.monthly_by_state.forEach(r => { totals[r.State] = (totals[r.State]||0) + r.count; });
+  return Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]);
+})();
+
+const stateDatasets = topStates.map((st, i) => {
+  const byMonth = {};
+  DATA.monthly_by_state.filter(r => r.State === st).forEach(r => byMonth[r.YearMonth] = r.count);
+  return {
+    label: st,
+    data: months.map(m => byMonth[m] || 0),
+    backgroundColor: palette[i],
+    borderColor: palette[i],
+    borderWidth: 0,
+  };
+});
+
+new Chart(document.getElementById('stateChart'), {
+  type: 'bar',
+  data: { labels: months, datasets: stateDatasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } } },
+    scales: {
+      x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 60, minRotation: 60, font: { size: 10 } } },
+      y: { stacked: true, grid: { color: 'rgba(42,47,61,0.4)' }, beginAtZero: true }
+    }
+  }
+});
+
+// ============================================================
+// Average tables (state & agency)
+// ============================================================
+function buildAvgTable(rows, keyField, containerId) {
+  const max = Math.max(...rows.map(r => r.avg));
+  const html = `<table><thead><tr>
+      <th>${keyField === 'state' ? 'State' : 'Agency'}</th>
+      <th style="text-align:right">Avg/mo</th>
+      <th style="text-align:right">Total closed</th>
+    </tr></thead><tbody>
+    ${rows.map(r => `
+      <tr>
+        <td class="name bar-cell">
+          <span style="position:relative; z-index:1;">${r[keyField]}</span>
+          <div class="bar" style="width:${(r.avg/max*100).toFixed(1)}%"></div>
+        </td>
+        <td class="num"><strong>${r.avg.toFixed(1)}</strong></td>
+        <td class="num" style="color:var(--mute)">${r.total.toLocaleString()}</td>
+      </tr>
+    `).join('')}
+  </tbody></table>`;
+  document.getElementById(containerId).innerHTML = html;
+}
+buildAvgTable(DATA.avg_by_state, 'state', 'avgStateTable');
+buildAvgTable(DATA.avg_by_agency, 'agency', 'avgAgencyTable');
+
+// ============================================================
+// Section 2 — Employee workload
+// ============================================================
+const roles = Object.keys(DATA.employees);
+let activeRole = roles[0];
+
+const ribbon = document.getElementById('roleRibbon');
+ribbon.innerHTML = roles.map(r => `<span class="pill ${r===activeRole?'active':''}" data-role="${r}">${r}</span>`).join('');
+ribbon.addEventListener('click', e => {
+  const t = e.target.closest('.pill');
+  if (!t) return;
+  activeRole = t.dataset.role;
+  ribbon.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.role === activeRole));
+  renderEmployees();
+});
+
+function renderEmployees() {
+  const rows = DATA.employees[activeRole];
+  const max = Math.max(...rows.map(r => r.total));
+  document.getElementById('employeeTable').innerHTML = `
+    <table><thead><tr>
+      <th>${activeRole}</th>
+      <th style="text-align:right">Total closed</th>
+      <th style="text-align:right">Months active</th>
+      <th style="text-align:right">Avg / month</th>
+      <th>States (volume)</th>
+    </tr></thead><tbody>
+    ${rows.map(r => {
+      // Primary state = highest volume; show up to 4 badges + overflow indicator
+      const top = r.states.slice(0, 4);
+      const rest = r.states.slice(4);
+      const restTotal = rest.reduce((a,b)=>a+b.count, 0);
+      const badges = top.map((s, idx) => `
+        <span class="st-badge ${idx===0?'':'dim'}">
+          <span class="st-code">${s.state}</span>
+          <span class="st-count">${s.count.toLocaleString()}</span>
+        </span>
+      `).join('');
+      const overflow = rest.length > 0
+        ? `<span class="st-mono">+${rest.length} more · ${restTotal.toLocaleString()}</span>`
+        : '';
+      const stateCount = r.states.length;
+      const stateCountLabel = stateCount === 1
+        ? `<span class="st-mono" style="margin-right:6px;">1 state</span>`
+        : `<span class="st-mono" style="margin-right:6px;">${stateCount} states</span>`;
+      return `
+        <tr>
+          <td class="name bar-cell">
+            <span style="position:relative; z-index:1;">${r.name}</span>
+            <div class="bar" style="width:${(r.total/max*100).toFixed(1)}%"></div>
+          </td>
+          <td class="num"><strong>${r.total.toLocaleString()}</strong></td>
+          <td class="num" style="color:var(--mute)">${r.months_active}</td>
+          <td class="num" style="color:var(--accent)">${r.avg_per_month.toFixed(1)}</td>
+          <td>
+            <div class="states-cell">
+              ${stateCountLabel}
+              ${badges}
+              ${overflow}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('')}
+    </tbody></table>
+  `;
+}
+renderEmployees();
+
+// ============================================================
+// Section 3 — Transaction mix by state
+// ============================================================
+const stateSelect = document.getElementById('stateSelect');
+// Order states by volume
+const stateVolume = {};
+DATA.tx_by_state.forEach(r => stateVolume[r.State] = (stateVolume[r.State]||0) + r.count);
+const orderedStates = Object.entries(stateVolume).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+stateSelect.innerHTML = orderedStates.map(st => `<option value="${st}">${st} · ${stateVolume[st].toLocaleString()} orders</option>`).join('');
+
+function topListFor(rows, stateKey, labelKey) {
+  return rows.filter(r => r.State === stateKey)
+             .sort((a,b)=>b.count - a.count);
+}
+
+function renderMix(state) {
+  const tx = topListFor(DATA.tx_by_state, state, 'Transaction Type');
+  const wf = topListFor(DATA.wf_by_state, state, 'Workflow');
+  const tmpl = topListFor(DATA.tmpl_by_state, state, 'Template Name');
+
+  document.getElementById('stateContext').textContent =
+    `${stateVolume[state].toLocaleString()} orders · ${tx.length} txn types · ${wf.length} workflows · ${tmpl.length} templates`;
+
+  const renderTable = (rows, labelKey) => {
+    if (rows.length === 0) return `<div style="color:var(--mute); font-family:'JetBrains Mono',monospace; font-size:11px; padding:12px 0;">— no records —</div>`;
+    const max = Math.max(...rows.map(r => r.count));
+    const total = rows.reduce((a,b)=>a+b.count, 0);
+    return `<table><tbody>
+      ${rows.map(r => {
+        const pct = (r.count/total*100).toFixed(1);
+        return `<tr>
+          <td class="name bar-cell" style="width:100%">
+            <span style="position:relative; z-index:1;">${r[labelKey]}</span>
+            <div class="bar" style="width:${(r.count/max*100).toFixed(1)}%"></div>
+          </td>
+          <td class="num"><strong>${r.count.toLocaleString()}</strong></td>
+          <td class="num" style="color:var(--mute); width:50px">${pct}%</td>
+        </tr>`;
+      }).join('')}
+    </tbody></table>`;
+  };
+
+  document.getElementById('txTable').innerHTML = renderTable(tx, 'Transaction Type');
+  document.getElementById('wfTable').innerHTML = renderTable(wf, 'Workflow');
+  document.getElementById('tmplTable').innerHTML = renderTable(tmpl, 'Template Name');
+}
+
+stateSelect.addEventListener('change', e => renderMix(e.target.value));
+renderMix(orderedStates[0]);
+
+</script>
+</body>
+</html>
